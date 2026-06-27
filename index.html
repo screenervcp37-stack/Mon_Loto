@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🎰 Loto – Générateur historique</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #273244;
+      --border: #334155;
+      --accent: #6366f1;
+      --accent2: #818cf8;
+      --gold: #f59e0b;
+      --green: #10b981;
+      --red: #ef4444;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 16px;
+    }
+    h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 4px; }
+    .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 20px; }
+
+    /* ── Status banner ── */
+    #status { padding: 10px 14px; border-radius: var(--radius); font-size: 0.85rem;
+              margin-bottom: 16px; display: none; }
+    #status.ok  { background: #052e16; color: #4ade80; border: 1px solid #166534; }
+    #status.err { background: #2d0a0a; color: #fca5a5; border: 1px solid #7f1d1d; }
+    #status.loading { background: #1e1b4b; color: #a5b4fc; border: 1px solid #3730a3; }
+
+    /* ── Controls ── */
+    .controls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; align-items: flex-end; }
+    .control-group { display: flex; flex-direction: column; gap: 4px; }
+    label { font-size: 0.78rem; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
+    input[type=number], input[type=text] {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); border-radius: 8px; padding: 8px 12px;
+      font-size: 1rem; width: 90px; outline: none;
+    }
+    input[type=text] { width: 260px; font-size: 0.82rem; }
+    input:focus { border-color: var(--accent); }
+    button {
+      padding: 9px 20px; border-radius: 8px; border: none; cursor: pointer;
+      font-size: 0.9rem; font-weight: 600; transition: opacity .15s;
+    }
+    button:active { opacity: .8; }
+    #btn-generate { background: var(--accent); color: #fff; }
+    #btn-add      { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    #btn-load     { background: var(--surface2); color: var(--text); border: 1px solid var(--border); font-size: 0.8rem; padding: 8px 14px; }
+
+    /* ── Grilles ── */
+    #grilles { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+    .grille {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px 16px;
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    }
+    .grille-num { display: flex; gap: 8px; flex-wrap: wrap; }
+    .ball {
+      width: 40px; height: 40px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 1rem;
+    }
+    .ball.main { background: linear-gradient(135deg,#1d4ed8,#3b82f6); color: #fff; }
+    .ball.chance { background: linear-gradient(135deg,#b45309,#f59e0b); color: #fff; }
+    .deja { font-size: 0.75rem; color: var(--red); background: #2d0a0a;
+            border-radius: 6px; padding: 2px 8px; border: 1px solid #7f1d1d; }
+
+    /* ── Stats ── */
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (min-width: 640px) { .stats-grid { grid-template-columns: 1fr 1fr 1fr; } }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px;
+    }
+    .stat-card h3 { font-size: 0.78rem; color: var(--muted); margin-bottom: 10px;
+                    text-transform: uppercase; letter-spacing: .05em; }
+    .freq-row { display: flex; justify-content: space-between; align-items: center;
+                padding: 3px 0; font-size: 0.85rem; }
+    .freq-bar-wrap { flex: 1; margin: 0 8px; height: 4px; background: var(--border); border-radius: 2px; }
+    .freq-bar { height: 4px; border-radius: 2px; background: var(--accent); }
+    .freq-count { color: var(--muted); font-size: 0.75rem; min-width: 24px; text-align: right; }
+
+    /* ── Add tirage ── */
+    .add-panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px; margin-bottom: 20px; display: none;
+    }
+    .add-panel h3 { font-size: 0.9rem; margin-bottom: 12px; color: var(--muted); }
+    .add-inputs { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+    .add-inputs input { width: 68px; }
+    .add-inputs input.chance { width: 68px; }
+    #btn-confirm-add { background: var(--green); color: #fff; }
+    .info-row { font-size: 0.78rem; color: var(--muted); margin-top: 8px; }
+
+    /* ── CSV source ── */
+    .csv-panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px; margin-bottom: 20px;
+    }
+    .csv-panel h3 { font-size: 0.9rem; margin-bottom: 10px; }
+    .csv-panel p  { font-size: 0.82rem; color: var(--muted); margin-bottom: 10px; line-height: 1.5; }
+    .url-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    #csv-url { flex: 1; min-width: 200px; }
+
+    /* ── Footer ── */
+    .footer { margin-top: 24px; font-size: 0.75rem; color: var(--muted); line-height: 1.6; }
+  </style>
+</head>
+<body>
+
+<h1>🎰 Loto – Générateur</h1>
+<p class="subtitle" id="subtitle">Chargement…</p>
+
+<div id="status" class="loading">⏳ Chargement du CSV…</div>
+
+<!-- CSV source -->
+<div class="csv-panel">
+  <h3>📡 Source de l'historique</h3>
+  <p>URL du fichier <code>loto_historique.csv</code> hébergé sur GitHub (raw) ou ailleurs. 
+     Elle est sauvegardée dans le navigateur.</p>
+  <div class="url-row">
+    <input type="text" id="csv-url" placeholder="https://raw.githubusercontent.com/TON_USER/loto/main/data/loto_historique.csv" />
+    <button id="btn-load">🔄 Charger</button>
+  </div>
+</div>
+
+<!-- Add tirage -->
+<button id="btn-add" style="margin-bottom:12px">➕ Ajouter un tirage</button>
+<div class="add-panel" id="add-panel">
+  <h3>Saisir un nouveau tirage</h3>
+  <div class="add-inputs">
+    <div class="control-group"><label>B1</label><input type="number" min="1" max="49" id="a1"></div>
+    <div class="control-group"><label>B2</label><input type="number" min="1" max="49" id="a2"></div>
+    <div class="control-group"><label>B3</label><input type="number" min="1" max="49" id="a3"></div>
+    <div class="control-group"><label>B4</label><input type="number" min="1" max="49" id="a4"></div>
+    <div class="control-group"><label>B5</label><input type="number" min="1" max="49" id="a5"></div>
+    <div class="control-group"><label>Chance</label><input type="number" min="1" max="10" id="ac" class="chance"></div>
+    <button id="btn-confirm-add">✅ Ajouter</button>
+  </div>
+  <p class="info-row">Les tirages ajoutés ici sont stockés localement (localStorage). 
+    Pense à les reporter dans ton CSV GitHub régulièrement.</p>
+  <div id="local-count" style="font-size:0.78rem;color:var(--muted);margin-top:6px;"></div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <div class="control-group">
+    <label>Nb grilles</label>
+    <input type="number" id="nb-grilles" value="5" min="1" max="20" />
+  </div>
+  <button id="btn-generate">🎟️ Générer</button>
+</div>
+
+<!-- Grilles output -->
+<div id="grilles"></div>
+
+<!-- Stats -->
+<div class="stats-grid" id="stats"></div>
+
+<div class="footer">
+  ℹ️ Les boules sont tirées avec un poids proportionnel à leur fréquence historique.<br>
+  Les tirages locaux (ajoutés manuellement) sont fusionnés avec le CSV GitHub.
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────
+let tiragesCSV = [];      // from GitHub CSV
+let tiragesLocal = [];    // from localStorage
+const LS_TIRAGES = "loto_local_tirages";
+const LS_URL     = "loto_csv_url";
+
+function allTirages() {
+  return [...tiragesCSV, ...tiragesLocal];
+}
+
+// ─────────────────────────────────────────────
+// LocalStorage helpers
+// ─────────────────────────────────────────────
+function loadLocal() {
+  try {
+    const raw = localStorage.getItem(LS_TIRAGES);
+    tiragesLocal = raw ? JSON.parse(raw) : [];
+  } catch { tiragesLocal = []; }
+}
+function saveLocal() {
+  localStorage.setItem(LS_TIRAGES, JSON.stringify(tiragesLocal));
+}
+function getStoredURL() {
+  return localStorage.getItem(LS_URL) || "";
+}
+function saveURL(url) {
+  localStorage.setItem(LS_URL, url);
+}
+
+// ─────────────────────────────────────────────
+// CSV loading
+// ─────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.trim().split("\n");
+  const header = lines[0].split(",").map(s => s.trim().toLowerCase());
+  const idx = {
+    b1: header.indexOf("boule_1"), b2: header.indexOf("boule_2"),
+    b3: header.indexOf("boule_3"), b4: header.indexOf("boule_4"),
+    b5: header.indexOf("boule_5"), ch: header.indexOf("numero_chance"),
+  };
+  const result = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(",");
+    const b1 = parseInt(cols[idx.b1]), b2 = parseInt(cols[idx.b2]),
+          b3 = parseInt(cols[idx.b3]), b4 = parseInt(cols[idx.b4]),
+          b5 = parseInt(cols[idx.b5]), ch = parseInt(cols[idx.ch]);
+    if ([b1,b2,b3,b4,b5,ch].some(isNaN)) continue;
+    if ([b1,b2,b3,b4,b5].some(n => n<1||n>49)) continue;
+    if (ch<1||ch>10) continue;
+    result.push({nums:[b1,b2,b3,b4,b5], chance:ch});
+  }
+  return result;
+}
+
+async function fetchCSV(url) {
+  setStatus("loading", `⏳ Chargement depuis ${url.substring(0,60)}…`);
+  try {
+    const resp = await fetch(url, {cache: "no-cache"});
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const text = await resp.text();
+    tiragesCSV = parseCSV(text);
+    saveURL(url);
+    setStatus("ok", `✅ ${tiragesCSV.length} tirages chargés depuis GitHub + ${tiragesLocal.length} locaux`);
+    updateSubtitle();
+    renderStats();
+  } catch (e) {
+    setStatus("err", `❌ Impossible de charger le CSV : ${e.message}`);
+    tiragesCSV = [];
+  }
+}
+
+// ─────────────────────────────────────────────
+// UI helpers
+// ─────────────────────────────────────────────
+function setStatus(type, msg) {
+  const el = document.getElementById("status");
+  el.className = type; el.textContent = msg; el.style.display = "block";
+}
+function updateSubtitle() {
+  const t = allTirages();
+  document.getElementById("subtitle").textContent =
+    `${t.length} tirages analysés (${tiragesCSV.length} GitHub + ${tiragesLocal.length} locaux)`;
+}
+function updateLocalCount() {
+  document.getElementById("local-count").textContent =
+    tiragesLocal.length > 0
+      ? `${tiragesLocal.length} tirage(s) stocké(s) localement dans ce navigateur.`
+      : "Aucun tirage local pour l'instant.";
+}
+
+// ─────────────────────────────────────────────
+// Frequency computation
+// ─────────────────────────────────────────────
+function computeFreqs() {
+  const all = allTirages();
+  const freqNums = new Map(), freqChance = new Map();
+  for (let n=1; n<=49; n++) freqNums.set(n, 0);
+  for (let n=1; n<=10; n++) freqChance.set(n, 0);
+  for (const t of all) {
+    for (const n of t.nums) freqNums.set(n, (freqNums.get(n)||0)+1);
+    freqChance.set(t.chance, (freqChance.get(t.chance)||0)+1);
+  }
+  return {freqNums, freqChance};
+}
+
+// ─────────────────────────────────────────────
+// Weighted random
+// ─────────────────────────────────────────────
+function weightedChoice(items, weights) {
+  const total = weights.reduce((a,b)=>a+b,0);
+  let r = Math.random()*total;
+  for (let i=0;i<items.length;i++) { r-=weights[i]; if(r<=0) return items[i]; }
+  return items[items.length-1];
+}
+
+function genererGrille(freqNums) {
+  const boules = [...freqNums.keys()];
+  const poids  = boules.map(b => freqNums.get(b)+1); // +1 pour éviter poids 0
+  const combo = [];
+  while (combo.length < 5) {
+    const c = weightedChoice(boules, poids);
+    if (!combo.includes(c)) combo.push(c);
+  }
+  return combo.sort((a,b)=>a-b);
+}
+
+// ─────────────────────────────────────────────
+// Generate & render grilles
+// ─────────────────────────────────────────────
+function generate() {
+  const all = allTirages();
+  if (all.length === 0) {
+    setStatus("err", "❌ Aucun historique chargé. Renseigne l'URL du CSV et clique Charger.");
+    return;
+  }
+  const {freqNums, freqChance} = computeFreqs();
+  const nb = Math.max(1, Math.min(20, parseInt(document.getElementById("nb-grilles").value)||5));
+  const historique_set = new Set(all.map(t => t.nums.slice().sort((a,b)=>a-b).join(",")));
+
+  const chances = [...freqChance.keys()];
+  const pChances = chances.map(c => freqChance.get(c)+1);
+
+  const container = document.getElementById("grilles");
+  container.innerHTML = "";
+
+  const vues = new Set();
+  let tentatives = 0;
+  while (vues.size < nb && tentatives < 100_000) {
+    tentatives++;
+    const nums = genererGrille(freqNums);
+    const chance = weightedChoice(chances, pChances);
+    const cle = nums.join(",") + "|" + chance;
+    if (vues.has(cle)) continue;
+    vues.add(cle);
+
+    const dejaVue = historique_set.has(nums.join(","));
+    const div = document.createElement("div");
+    div.className = "grille";
+
+    const ballsDiv = document.createElement("div");
+    ballsDiv.className = "grille-num";
+    for (const n of nums) {
+      const b = document.createElement("div");
+      b.className = "ball main";
+      b.textContent = n;
+      ballsDiv.appendChild(b);
+    }
+    const sep = document.createElement("div");
+    sep.style = "color:var(--muted);font-size:1.2rem";
+    sep.textContent = "+";
+    const chBall = document.createElement("div");
+    chBall.className = "ball chance";
+    chBall.textContent = chance;
+
+    div.appendChild(ballsDiv);
+    div.appendChild(sep);
+    div.appendChild(chBall);
+    if (dejaVue) {
+      const w = document.createElement("span");
+      w.className = "deja"; w.textContent = "⚠️ déjà sortie";
+      div.appendChild(w);
+    }
+    container.appendChild(div);
+  }
+}
+
+// ─────────────────────────────────────────────
+// Stats rendering
+// ─────────────────────────────────────────────
+function renderStats() {
+  const {freqNums, freqChance} = computeFreqs();
+  const container = document.getElementById("stats");
+  container.innerHTML = "";
+
+  // Top 10
+  const sorted = [...freqNums.entries()].sort((a,b)=>b[1]-a[1]);
+  const maxF = sorted[0][1];
+
+  function makeCard(title, rows, maxVal, colorClass) {
+    const card = document.createElement("div");
+    card.className = "stat-card";
+    card.innerHTML = `<h3>${title}</h3>`;
+    for (const [num, cnt] of rows) {
+      const pct = maxVal ? cnt/maxVal*100 : 0;
+      const row = document.createElement("div");
+      row.className = "freq-row";
+      row.innerHTML = `
+        <span style="min-width:26px;font-weight:600">${num}</span>
+        <div class="freq-bar-wrap"><div class="freq-bar" style="width:${pct}%;background:${colorClass}"></div></div>
+        <span class="freq-count">${cnt}</span>`;
+      card.appendChild(row);
+    }
+    return card;
+  }
+
+  container.appendChild(makeCard("🔥 Top 10 boules", sorted.slice(0,10), maxF, "var(--accent)"));
+  container.appendChild(makeCard("❄️ Flop 10 boules", sorted.slice(-10).reverse(), maxF, "#64748b"));
+
+  const sortedC = [...freqChance.entries()].sort((a,b)=>b[1]-a[1]);
+  const maxC = sortedC[0]?.[1]||1;
+  container.appendChild(makeCard("🍀 Numéros chance", sortedC, maxC, "var(--gold)"));
+}
+
+// ─────────────────────────────────────────────
+// Add tirage panel
+// ─────────────────────────────────────────────
+document.getElementById("btn-add").onclick = () => {
+  const p = document.getElementById("add-panel");
+  p.style.display = p.style.display === "block" ? "none" : "block";
+  updateLocalCount();
+};
+
+document.getElementById("btn-confirm-add").onclick = () => {
+  const ids = ["a1","a2","a3","a4","a5","ac"];
+  const vals = ids.map(id => parseInt(document.getElementById(id).value));
+  const [b1,b2,b3,b4,b5,ch] = vals;
+  if (vals.some(isNaN)) { alert("Remplis toutes les cases."); return; }
+  if ([b1,b2,b3,b4,b5].some(n=>n<1||n>49)) { alert("Boules : 1-49"); return; }
+  if (ch<1||ch>10) { alert("Chance : 1-10"); return; }
+  const nums = [b1,b2,b3,b4,b5].sort((a,b)=>a-b);
+  tiragesLocal.push({nums, chance:ch});
+  saveLocal();
+  updateLocalCount();
+  updateSubtitle();
+  renderStats();
+  setStatus("ok", `✅ Tirage ajouté. Total : ${allTirages().length}`);
+  ids.forEach(id => document.getElementById(id).value = "");
+};
+
+// ─────────────────────────────────────────────
+// CSV URL + load
+// ─────────────────────────────────────────────
+document.getElementById("btn-load").onclick = () => {
+  const url = document.getElementById("csv-url").value.trim();
+  if (!url) { setStatus("err","❌ URL vide"); return; }
+  fetchCSV(url);
+};
+
+document.getElementById("btn-generate").onclick = generate;
+
+// ─────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────
+loadLocal();
+updateLocalCount();
+const storedURL = getStoredURL();
+if (storedURL) {
+  document.getElementById("csv-url").value = storedURL;
+  fetchCSV(storedURL).then(() => { updateSubtitle(); });
+} else {
+  setStatus("err", "⚠️ Renseigne l'URL de ton CSV GitHub ci-dessus, puis clique Charger.");
+  document.getElementById("subtitle").textContent = "En attente d'un CSV…";
+}
+</script>
+</body>
+</html>
