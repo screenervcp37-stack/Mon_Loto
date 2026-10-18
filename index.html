@@ -239,13 +239,12 @@ async function fetchCSV(url) {
     const text = await resp.text();
     tiragesCSV = parseCSV(text);
     saveURL(url);
-    setStatus("ok", `✅ ${tiragesCSV.length} tirages chargés depuis GitHub + ${tiragesLocal.length} locaux`);
+    setStatus("ok", `✅ ${tiragesCSV.length} tirages chargés depuis GitHub + ${tiragesLocal.length} locaux${rejets.length ? ` · ⚠️ ${rejets.length} ligne(s) rejetée(s)` : ""}`);
     updateSubtitle();
     renderStats();
   } catch (e) {
     setStatus("err", `❌ Impossible de charger le CSV : ${e.message}`);
-    tiragesCSV = []
-    ${rejets.length ?  · ⚠️ ${rejets.length} ligne(s) rejetée(s) (voir console) : ""};
+    tiragesCSV = [];
   }
 }
 
