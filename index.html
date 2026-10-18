@@ -207,27 +207,29 @@ function saveURL(url) {
 // ─────────────────────────────────────────────
 // CSV loading
 // ─────────────────────────────────────────────
+let rejets = [];
 function parseCSV(text) {
-  const lines = text.trim().split("\n");
-  const header = lines[0].split(",").map(s => s.trim().toLowerCase());
-  const idx = {
-    b1: header.indexOf("boule_1"), b2: header.indexOf("boule_2"),
-    b3: header.indexOf("boule_3"), b4: header.indexOf("boule_4"),
-    b5: header.indexOf("boule_5"), ch: header.indexOf("numero_chance"),
-  };
-  const result = [];
+  const lines = text.trim().split(/\r?\n/);
+  const sep = lines[0].includes(";") ? ";" : ",";
+  const clean = s => (s || "").trim().replace(/^"|"$/g, "");
+  const header = lines[0].split(sep).map(s => clean(s).toLowerCase());
+  const idx = ["boule_1","boule_2","boule_3","boule_4","boule_5","numero_chance"]
+    .map(h => header.indexOf(h));
+  const result = []; rejets = [];
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(",");
-    const b1 = parseInt(cols[idx.b1]), b2 = parseInt(cols[idx.b2]),
-          b3 = parseInt(cols[idx.b3]), b4 = parseInt(cols[idx.b4]),
-          b5 = parseInt(cols[idx.b5]), ch = parseInt(cols[idx.ch]);
-    if ([b1,b2,b3,b4,b5,ch].some(isNaN)) continue;
-    if ([b1,b2,b3,b4,b5].some(n => n<1||n>49)) continue;
-    if (ch<1||ch>10) continue;
+    if (!lines[i].trim()) continue;
+    const cols = lines[i].split(sep);
+    const v = idx.map(j => parseInt(clean(cols[j])));
+    const [b1,b2,b3,b4,b5,ch] = v;
+    if (v.some(isNaN) || [b1,b2,b3,b4,b5].some(n=>n<1||n>49) || ch<1||ch>10) {
+      rejets.push(`L${i+1}: ${lines[i]}`); continue;
+    }
     result.push({nums:[b1,b2,b3,b4,b5], chance:ch});
   }
+  if (rejets.length) console.warn("Lignes rejetées :", rejets);
   return result;
 }
+
 
 async function fetchCSV(url) {
   setStatus("loading", `⏳ Chargement depuis ${url.substring(0,60)}…`);
