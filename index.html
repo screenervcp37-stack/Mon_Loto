@@ -244,7 +244,8 @@ async function fetchCSV(url) {
     renderStats();
   } catch (e) {
     setStatus("err", `❌ Impossible de charger le CSV : ${e.message}`);
-    tiragesCSV = [];
+    tiragesCSV = []
+    ${rejets.length ?  · ⚠️ ${rejets.length} ligne(s) rejetée(s) (voir console) : ""};
   }
 }
 
