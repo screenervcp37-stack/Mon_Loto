@@ -234,7 +234,11 @@ function parseCSV(text) {
 async function fetchCSV(url) {
   setStatus("loading", `⏳ Chargement depuis ${url.substring(0,60)}…`);
   try {
-    const resp = await fetch(url, {cache: "no-cache"});
+    const api = url.replace(
+      /^https:\/\/raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/,
+      "https://api.github.com/repos/$1/$2/contents/$4?ref=$3"
+    );
+    const resp = await fetch(api, {cache: "no-store", headers: {Accept: "application/vnd.github.raw"}});
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const text = await resp.text();
     tiragesCSV = parseCSV(text);
@@ -247,6 +251,7 @@ async function fetchCSV(url) {
     tiragesCSV = [];
   }
 }
+
 
 // ─────────────────────────────────────────────
 // UI helpers
